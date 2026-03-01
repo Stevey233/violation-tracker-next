@@ -4,23 +4,19 @@ import Link from 'next/link';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Dock from '@/components/Dock';
+import { useLocale } from '@/components/LocaleProvider';
 import type { AppRole, ViolationType } from '@/lib/types';
 import { toInputDatetimeLocal } from '@/lib/date';
+import { getViolationTypeLabel } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
-
-const violationTypeOptions: Array<{ label: string; value: ViolationType }> = [
-  { label: 'Abuse', value: 'abuse' },
-  { label: 'Harassment', value: 'harassment' },
-  { label: 'Hate', value: 'hate' },
-  { label: 'Spam', value: 'spam' },
-  { label: 'Other', value: 'other' }
-];
 
 export default function NewRecordPage() {
   const router = useRouter();
+  const { locale, tr } = useLocale();
   const [playerUid, setPlayerUid] = useState('');
+  const [wtPlayerName, setWtPlayerName] = useState('');
   const [messageText, setMessageText] = useState('');
-  const [violationType, setViolationType] = useState<ViolationType>('abuse');
+  const [violationType, setViolationType] = useState<ViolationType>('tk');
   const [occurredAt, setOccurredAt] = useState(toInputDatetimeLocal());
   const [note, setNote] = useState('');
   const [files, setFiles] = useState<File[]>([]);
@@ -29,6 +25,15 @@ export default function NewRecordPage() {
   const [success, setSuccess] = useState('');
   const [accessChecked, setAccessChecked] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  const typeOptions = useMemo<Array<{ value: ViolationType; label: string }>>(
+    () => [
+      { value: 'tk', label: getViolationTypeLabel(locale, 'tk') },
+      { value: 'troll', label: getViolationTypeLabel(locale, 'troll') },
+      { value: 'improper', label: getViolationTypeLabel(locale, 'improper') }
+    ],
+    [locale]
+  );
 
   useEffect(() => {
     async function ensureAdmin() {
@@ -49,15 +54,15 @@ export default function NewRecordPage() {
 
   const fileSummary = useMemo(() => {
     if (files.length === 0) {
-      return 'No files selected';
+      return tr('new.noFiles');
     }
-    return `${files.length} file(s) selected`;
-  }, [files.length]);
+    return tr('new.fileCount', { count: files.length });
+  }, [files.length, tr]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!isAdmin) {
-      setError('Only admin can create new records.');
+      setError(tr('new.adminOnly'));
       return;
     }
 
@@ -67,7 +72,7 @@ export default function NewRecordPage() {
 
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError || !userData.user) {
-      setError('Session expired. Please sign in again.');
+      setError(tr('new.sessionExpired'));
       setSubmitting(false);
       router.replace('/login');
       return;
@@ -77,6 +82,7 @@ export default function NewRecordPage() {
       .from('violation_records')
       .insert({
         player_uid: playerUid.trim(),
+        wt_player_name: wtPlayerName.trim(),
         message_text: messageText.trim(),
         violation_type: violationType,
         occurred_at: new Date(occurredAt).toISOString(),
@@ -87,7 +93,7 @@ export default function NewRecordPage() {
       .single();
 
     if (recordError || !record) {
-      setError(recordError?.message ?? 'Failed to create record');
+      setError(recordError?.message ?? tr('new.createFailed'));
       setSubmitting(false);
       return;
     }
@@ -98,7 +104,7 @@ export default function NewRecordPage() {
         const storagePath = `${record.id}/${crypto.randomUUID()}-${safeName}`;
         const { error: uploadError } = await supabase.storage.from('evidence').upload(storagePath, file);
         if (uploadError) {
-          setError(`Upload failed for ${file.name}: ${uploadError.message}`);
+          setError(tr('new.uploadFailed', { name: file.name, message: uploadError.message }));
           setSubmitting(false);
           return;
         }
@@ -111,14 +117,14 @@ export default function NewRecordPage() {
         });
 
         if (evidenceError) {
-          setError(`Evidence insert failed for ${file.name}: ${evidenceError.message}`);
+          setError(tr('new.evidenceInsertFailed', { name: file.name, message: evidenceError.message }));
           setSubmitting(false);
           return;
         }
       }
     }
 
-    setSuccess('Record created. Redirecting to details...');
+    setSuccess(tr('new.success'));
     setSubmitting(false);
     setTimeout(() => {
       router.push(`/records/${record.id}`);
@@ -131,48 +137,57 @@ export default function NewRecordPage() {
 
       <section className='card row' style={{ justifyContent: 'space-between' }}>
         <div className='stack' style={{ gap: 6 }}>
-          <h1 className='title'>New Violation Entry</h1>
-          <p className='subtitle'>Admin-only action.</p>
+          <h1 className='title'>{tr('new.title')}</h1>
+          <p className='subtitle'>{tr('new.subtitle')}</p>
         </div>
         <Link href='/records'>
           <button type='button' className='secondary'>
-            Back
+            {tr('common.back')}
           </button>
         </Link>
       </section>
 
-      {!accessChecked ? <section className='card'>Checking access...</section> : null}
-      {accessChecked && !isAdmin ? <section className='card error'>Only admin can create new records.</section> : null}
+      {!accessChecked ? <section className='card'>{tr('new.accessChecking')}</section> : null}
+      {accessChecked && !isAdmin ? <section className='card error'>{tr('new.adminOnly')}</section> : null}
 
       {accessChecked && isAdmin ? (
         <section className='card'>
           <form className='stack' onSubmit={handleSubmit}>
             <label className='stack' style={{ gap: 6 }}>
-              <span>Player ID</span>
+              <span>{tr('new.playerId')}</span>
               <input
                 required
                 value={playerUid}
                 onChange={(event) => setPlayerUid(event.target.value)}
-                placeholder='player_123456'
+                placeholder={tr('new.playerPlaceholder')}
               />
             </label>
 
             <label className='stack' style={{ gap: 6 }}>
-              <span>Message</span>
+              <span>{tr('new.wtPlayerName')}</span>
+              <input
+                value={wtPlayerName}
+                onChange={(event) => setWtPlayerName(event.target.value)}
+                placeholder={tr('new.wtPlaceholder')}
+              />
+            </label>
+
+            <label className='stack' style={{ gap: 6 }}>
+              <span>{tr('new.message')}</span>
               <textarea
                 required
                 rows={4}
                 value={messageText}
                 onChange={(event) => setMessageText(event.target.value)}
-                placeholder='Violation content'
+                placeholder={tr('new.message')}
               />
             </label>
 
             <div className='row'>
               <label style={{ flex: 1, minWidth: 220 }}>
-                Type
+                {tr('new.type')}
                 <select value={violationType} onChange={(event) => setViolationType(event.target.value as ViolationType)}>
-                  {violationTypeOptions.map((option) => (
+                  {typeOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -181,7 +196,7 @@ export default function NewRecordPage() {
               </label>
 
               <label style={{ flex: 1, minWidth: 220 }}>
-                Occurred At
+                {tr('new.occurredAt')}
                 <input
                   type='datetime-local'
                   required
@@ -192,28 +207,38 @@ export default function NewRecordPage() {
             </div>
 
             <label className='stack' style={{ gap: 6 }}>
-              <span>Note</span>
-              <textarea rows={3} value={note} onChange={(event) => setNote(event.target.value)} placeholder='Optional note' />
+              <span>{tr('new.note')}</span>
+              <textarea
+                rows={3}
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                placeholder={tr('new.notePlaceholder')}
+              />
             </label>
 
             <label className='stack' style={{ gap: 6 }}>
-              <span>Evidence Images</span>
+              <span>{tr('new.evidenceImages')}</span>
               <input
+                id='evidence-input'
+                className='file-input-hidden'
                 type='file'
                 multiple
                 accept='image/*'
                 onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
               />
-              <span className='subtitle'>{fileSummary}</span>
+              <label htmlFor='evidence-input' className='file-picker'>
+                <span className='file-picker-btn'>{tr('new.chooseImages')}</span>
+                <span className='file-picker-text'>{fileSummary}</span>
+              </label>
             </label>
 
             <div className='row'>
               <button type='submit' disabled={submitting}>
-                {submitting ? 'Submitting...' : 'Submit'}
+                {submitting ? tr('new.submitting') : tr('new.submit')}
               </button>
               <Link href='/records'>
                 <button type='button' className='secondary'>
-                  Cancel
+                  {tr('common.cancel')}
                 </button>
               </Link>
             </div>
@@ -226,4 +251,3 @@ export default function NewRecordPage() {
     </main>
   );
 }
-

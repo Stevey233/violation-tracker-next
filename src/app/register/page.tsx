@@ -7,12 +7,14 @@ import Dock from '@/components/Dock';
 import { useLocale } from '@/components/LocaleProvider';
 import { supabase } from '@/lib/supabase';
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter();
   const { tr } = useLocale();
+  const [wtName, setWtName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [pending, setPending] = useState(false);
+  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -28,21 +30,34 @@ export default function LoginPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setMessage('');
     setError('');
-    setPending(true);
 
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password
-    });
-
-    setPending(false);
-    if (signInError || !signInData.user) {
-      setError(signInError?.message ?? 'Sign in failed.');
+    const wtUsername = wtName.trim();
+    if (!wtUsername) {
+      setError(tr('login.wtNameRequired'));
       return;
     }
 
-    router.replace('/records');
+    setPending(true);
+    const { error: signUpError } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: {
+        data: {
+          name: wtUsername
+        },
+        emailRedirectTo: `${window.location.origin}/records`
+      }
+    });
+
+    setPending(false);
+    if (signUpError) {
+      setError(signUpError.message);
+      return;
+    }
+
+    setMessage(tr('login.registerSuccess'));
   }
 
   return (
@@ -51,10 +66,20 @@ export default function LoginPage() {
 
       <div className='auth-shell'>
         <section className='card stack auth-card'>
-          <h1 className='title'>{tr('login.signInTitle')}</h1>
+          <h1 className='title'>{tr('login.registerTitle')}</h1>
           <p className='subtitle'>{tr('login.subtitle')}</p>
 
           <form className='stack' onSubmit={handleSubmit}>
+            <label className='stack' style={{ gap: 6 }}>
+              <span>{tr('login.wtName')}</span>
+              <input
+                value={wtName}
+                onChange={(event) => setWtName(event.target.value)}
+                placeholder={tr('login.wtNameHint')}
+                required
+              />
+            </label>
+
             <label className='stack' style={{ gap: 6 }}>
               <span>{tr('login.email')}</span>
               <input
@@ -78,15 +103,16 @@ export default function LoginPage() {
               />
             </label>
 
-            <Link href='/register' className='auth-register-link'>
-              {tr('login.registerAccountLink')}
-            </Link>
-
             <button type='submit' disabled={pending}>
-              {pending ? tr('login.submitting') : tr('login.submitSignIn')}
+              {pending ? tr('login.submitting') : tr('login.submitRegister')}
             </button>
           </form>
 
+          <Link href='/login' className='auth-register-link'>
+            {tr('login.signIn')}
+          </Link>
+
+          {message ? <p className='success'>{message}</p> : null}
           {error ? <p className='error'>{error}</p> : null}
         </section>
       </div>

@@ -1,3 +1,5 @@
+import type { Locale } from '@/lib/i18n';
+
 export function toInputDatetimeLocal(date = new Date()) {
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, '0');
@@ -7,8 +9,8 @@ export function toInputDatetimeLocal(date = new Date()) {
   return `${year}-${month}-${day}T${hour}:${minute}`;
 }
 
-export function formatDate(value: string) {
-  return new Intl.DateTimeFormat('zh-CN', {
+export function formatDate(value: string, locale: Locale = 'zh-CN') {
+  return new Intl.DateTimeFormat(locale, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -16,4 +18,3 @@ export function formatDate(value: string) {
     minute: '2-digit'
   }).format(new Date(value));
 }
-

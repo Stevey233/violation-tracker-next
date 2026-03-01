@@ -1,10 +1,21 @@
 -- Run this in Supabase SQL Editor
 -- Goal:
 -- 1) role model -> admin/user
--- 2) authenticated users can view records + evidence + gallery
--- 3) only admin can create records
+-- 2) anonymous users can view records text only
+-- 3) authenticated users can view evidence + gallery
+-- 4) only admin can create records
 
 begin;
+
+alter table public.violation_records
+  add column if not exists wt_player_name text not null default '';
+
+alter table public.violation_records
+  drop constraint if exists violation_records_violation_type_check;
+
+alter table public.violation_records
+  add constraint violation_records_violation_type_check
+  check (violation_type in ('tk', 'troll', 'improper', 'abuse', 'harassment', 'hate', 'spam', 'other'));
 
 update public.profiles
 set role = 'user'
@@ -42,7 +53,7 @@ drop policy if exists records_select_authenticated on public.violation_records;
 create policy records_select_authenticated
 on public.violation_records
 for select
-to authenticated
+to anon, authenticated
 using (true);
 
 drop policy if exists records_insert_self_reporter on public.violation_records;
@@ -70,4 +81,3 @@ to authenticated
 using (bucket_id = 'evidence');
 
 commit;
-

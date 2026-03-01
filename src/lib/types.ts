@@ -1,6 +1,6 @@
 export type AppRole = 'admin' | 'user' | 'member';
 
-export type ViolationType = 'abuse' | 'harassment' | 'hate' | 'spam' | 'other';
+export type ViolationType = 'tk' | 'troll' | 'improper' | 'abuse' | 'harassment' | 'hate' | 'spam' | 'other';
 
 export interface Profile {
   id: string;
@@ -12,6 +12,7 @@ export interface Profile {
 export interface ViolationRecord {
   id: string;
   player_uid: string;
+  wt_player_name?: string | null;
   message_text: string;
   violation_type: ViolationType;
   occurred_at: string;

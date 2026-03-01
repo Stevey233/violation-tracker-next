@@ -1,41 +1,51 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Dock from '@/components/Dock';
-import type { ViolationRecord, ViolationType } from '@/lib/types';
+import { useLocale } from '@/components/LocaleProvider';
+import type { AppRole, ViolationRecord, ViolationType } from '@/lib/types';
 import { formatDate } from '@/lib/date';
+import { getViolationTypeLabel } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 
-const violationTypeOptions: Array<{ label: string; value: ViolationType | 'all' }> = [
-  { label: 'All', value: 'all' },
-  { label: 'Abuse', value: 'abuse' },
-  { label: 'Harassment', value: 'harassment' },
-  { label: 'Hate', value: 'hate' },
-  { label: 'Spam', value: 'spam' },
-  { label: 'Other', value: 'other' }
-];
-
 export default function RecordsPage() {
-  const router = useRouter();
+  const { locale, tr } = useLocale();
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState<ViolationRecord[]>([]);
   const [filterPlayer, setFilterPlayer] = useState('');
   const [filterType, setFilterType] = useState<ViolationType | 'all'>('all');
   const [error, setError] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
+  const [role, setRole] = useState<AppRole | 'guest'>('guest');
+
+  const typeOptions = useMemo<Array<{ value: ViolationType | 'all'; label: string }>>(
+    () => [
+      { value: 'all', label: getViolationTypeLabel(locale, 'all') },
+      { value: 'tk', label: getViolationTypeLabel(locale, 'tk') },
+      { value: 'troll', label: getViolationTypeLabel(locale, 'troll') },
+      { value: 'improper', label: getViolationTypeLabel(locale, 'improper') }
+    ],
+    [locale]
+  );
+
+  const isAdmin = role === 'admin';
+  const canViewImages = Boolean(userId);
 
   const loadData = useCallback(async () => {
     setError('');
     setLoading(true);
 
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError || !userData.user) {
-      router.replace('/login');
-      return;
+    const { data: userData } = await supabase.auth.getUser();
+    const currentUserId = userData.user?.id ?? null;
+    setUserId(currentUserId);
+
+    if (currentUserId) {
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', currentUserId).single();
+      setRole((profile?.role as AppRole | undefined) ?? 'user');
+    } else {
+      setRole('guest');
     }
-    setUserId(userData.user.id);
 
     let query = supabase.from('violation_records').select('*').order('created_at', { ascending: false });
 
@@ -56,7 +66,7 @@ export default function RecordsPage() {
 
     setRecords(data ?? []);
     setLoading(false);
-  }, [filterPlayer, filterType, router]);
+  }, [filterPlayer, filterType]);
 
   useEffect(() => {
     void loadData();
@@ -67,22 +77,22 @@ export default function RecordsPage() {
       <Dock />
 
       <section className='card stack'>
-        <h1 className='title'>Violation Entries</h1>
-        <p className='subtitle'>Only signed-in users can view records and evidence.</p>
+        <h1 className='title'>{tr('records.title')}</h1>
+        <p className='subtitle'>{tr('records.subtitle')}</p>
 
         <div className='row'>
           <label style={{ flex: 1, minWidth: 220 }}>
-            Player ID
+            {tr('records.playerId')}
             <input
               value={filterPlayer}
               onChange={(event) => setFilterPlayer(event.target.value)}
-              placeholder='player_1234'
+              placeholder={tr('records.placeholderPlayer')}
             />
           </label>
           <label style={{ width: 220 }}>
-            Type
+            {tr('records.type')}
             <select value={filterType} onChange={(event) => setFilterType(event.target.value as ViolationType | 'all')}>
-              {violationTypeOptions.map((option) => (
+              {typeOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -90,37 +100,45 @@ export default function RecordsPage() {
             </select>
           </label>
           <button type='button' onClick={() => void loadData()}>
-            Refresh
+            {tr('common.refresh')}
           </button>
         </div>
 
         {error ? <p className='error'>{error}</p> : null}
-        {loading ? <p>Loading...</p> : null}
-        {!loading && records.length === 0 ? <p>No records.</p> : null}
+        {loading ? <p>{tr('common.loading')}</p> : null}
+        {!loading && records.length === 0 ? <p>{tr('records.empty')}</p> : null}
 
         {!loading && records.length > 0 ? (
           <div style={{ overflowX: 'auto' }}>
             <table>
               <thead>
                 <tr>
-                  <th>Player ID</th>
-                  <th>Type</th>
-                  <th>Occurred At</th>
-                  <th>Reporter</th>
-                  <th>Created At</th>
-                  <th>Action</th>
+                  <th>{tr('records.playerId')}</th>
+                  <th>{tr('records.wtPlayerName')}</th>
+                  <th>{tr('records.type')}</th>
+                  <th>{tr('records.occurredAt')}</th>
+                  {isAdmin ? <th>{tr('records.reporter')}</th> : null}
+                  {isAdmin ? <th>{tr('records.createdAt')}</th> : null}
+                  <th>{tr('records.note')}</th>
+                  <th>{tr('records.viewImage')}</th>
                 </tr>
               </thead>
               <tbody>
                 {records.map((record) => (
                   <tr key={record.id}>
                     <td>{record.player_uid}</td>
-                    <td>{record.violation_type}</td>
-                    <td>{formatDate(record.occurred_at)}</td>
-                    <td>{record.reporter_id === userId ? 'Me' : record.reporter_id.slice(0, 8)}</td>
-                    <td>{formatDate(record.created_at)}</td>
+                    <td>{record.wt_player_name || '-'}</td>
+                    <td>{getViolationTypeLabel(locale, record.violation_type)}</td>
+                    <td>{formatDate(record.occurred_at, locale)}</td>
+                    {isAdmin ? <td>{record.reporter_id === userId ? tr('records.me') : record.reporter_id.slice(0, 8)}</td> : null}
+                    {isAdmin ? <td>{formatDate(record.created_at, locale)}</td> : null}
+                    <td>{record.note || '-'}</td>
                     <td>
-                      <Link href={`/records/${record.id}`}>Details</Link>
+                      {canViewImages ? (
+                        <Link href={`/records/${record.id}#evidence`}>{tr('records.viewImage')}</Link>
+                      ) : (
+                        <Link href='/login'>{tr('records.signInToView')}</Link>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -132,4 +150,3 @@ export default function RecordsPage() {
     </main>
   );
 }
-

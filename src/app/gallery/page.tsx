@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Dock from '@/components/Dock';
+import { useLocale } from '@/components/LocaleProvider';
 import type { EvidenceFile } from '@/lib/types';
 import { formatDate } from '@/lib/date';
 import { supabase } from '@/lib/supabase';
@@ -14,6 +15,7 @@ interface GalleryItem extends EvidenceFile {
 
 export default function GalleryPage() {
   const router = useRouter();
+  const { locale, tr } = useLocale();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [error, setError] = useState('');
@@ -64,11 +66,11 @@ export default function GalleryPage() {
       <Dock />
 
       <section className='card stack'>
-        <h1 className='title'>Evidence Gallery</h1>
-        <p className='subtitle'>Waterfall view of uploaded evidence images.</p>
+        <h1 className='title'>{tr('gallery.title')}</h1>
+        <p className='subtitle'>{tr('gallery.subtitle')}</p>
         {error ? <p className='error'>{error}</p> : null}
-        {loading ? <p>Loading...</p> : null}
-        {!loading && items.length === 0 ? <p>No images found.</p> : null}
+        {loading ? <p>{tr('common.loading')}</p> : null}
+        {!loading && items.length === 0 ? <p>{tr('gallery.empty')}</p> : null}
 
         {!loading && items.length > 0 ? (
           <div className='masonry'>
@@ -77,10 +79,12 @@ export default function GalleryPage() {
                 {item.signedUrl ? (
                   <img src={item.signedUrl} alt={item.storage_path} className='gallery-image' loading='lazy' />
                 ) : (
-                  <div className='error'>Image URL unavailable</div>
+                  <div className='error'>{tr('gallery.urlError')}</div>
                 )}
-                <p className='subtitle' style={{ marginTop: 8 }}>{formatDate(item.created_at)}</p>
-                <Link href={`/records/${item.record_id}`}>Go to record</Link>
+                <p className='subtitle' style={{ marginTop: 8 }}>
+                  {formatDate(item.created_at, locale)}
+                </p>
+                <Link href={`/records/${item.record_id}`}>{tr('gallery.goRecord')}</Link>
               </article>
             ))}
           </div>

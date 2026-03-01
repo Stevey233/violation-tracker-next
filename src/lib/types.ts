@@ -1,4 +1,4 @@
-export type AppRole = 'admin' | 'member';
+export type AppRole = 'admin' | 'user' | 'member';
 
 export type ViolationType = 'abuse' | 'harassment' | 'hate' | 'spam' | 'other';
 

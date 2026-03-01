@@ -1,19 +1,20 @@
 'use client';
 
 import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { AppRole, Profile, ViolationRecord, ViolationType } from '@/lib/types';
+import Dock from '@/components/Dock';
+import type { ViolationRecord, ViolationType } from '@/lib/types';
 import { formatDate } from '@/lib/date';
 import { supabase } from '@/lib/supabase';
 
 const violationTypeOptions: Array<{ label: string; value: ViolationType | 'all' }> = [
-  { label: '全部', value: 'all' },
-  { label: '辱骂', value: 'abuse' },
-  { label: '骚扰', value: 'harassment' },
-  { label: '仇恨言论', value: 'hate' },
-  { label: '刷屏', value: 'spam' },
-  { label: '其他', value: 'other' }
+  { label: 'All', value: 'all' },
+  { label: 'Abuse', value: 'abuse' },
+  { label: 'Harassment', value: 'harassment' },
+  { label: 'Hate', value: 'hate' },
+  { label: 'Spam', value: 'spam' },
+  { label: 'Other', value: 'other' }
 ];
 
 export default function RecordsPage() {
@@ -23,16 +24,7 @@ export default function RecordsPage() {
   const [filterPlayer, setFilterPlayer] = useState('');
   const [filterType, setFilterType] = useState<ViolationType | 'all'>('all');
   const [error, setError] = useState('');
-  const [profile, setProfile] = useState<Profile | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-
-  const roleText = useMemo(() => {
-    const role: AppRole | undefined = profile?.role;
-    if (!role) {
-      return '未知角色';
-    }
-    return role === 'admin' ? '管理员' : '成员';
-  }, [profile?.role]);
 
   const loadData = useCallback(async () => {
     setError('');
@@ -44,13 +36,6 @@ export default function RecordsPage() {
       return;
     }
     setUserId(userData.user.id);
-
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userData.user.id)
-      .single();
-    setProfile(profileData ?? null);
 
     let query = supabase.from('violation_records').select('*').order('created_at', { ascending: false });
 
@@ -77,44 +62,25 @@ export default function RecordsPage() {
     void loadData();
   }, [loadData]);
 
-  async function handleSignOut() {
-    await supabase.auth.signOut();
-    router.replace('/login');
-  }
-
   return (
     <main className='container stack'>
-      <section className='card row' style={{ justifyContent: 'space-between' }}>
-        <div className='stack' style={{ gap: 6 }}>
-          <h1 className='title'>违规记录</h1>
-          <p className='subtitle'>
-            当前账号：
-            {profile?.display_name ? ` ${profile.display_name} ` : ' '}
-            <span className='badge'>{roleText}</span>
-          </p>
-        </div>
-        <div className='row'>
-          <Link href='/records/new'>
-            <button type='button'>新建记录</button>
-          </Link>
-          <button type='button' className='secondary' onClick={handleSignOut}>
-            退出登录
-          </button>
-        </div>
-      </section>
+      <Dock />
 
       <section className='card stack'>
+        <h1 className='title'>Violation Entries</h1>
+        <p className='subtitle'>Only signed-in users can view records and evidence.</p>
+
         <div className='row'>
           <label style={{ flex: 1, minWidth: 220 }}>
-            玩家 ID 筛选
+            Player ID
             <input
               value={filterPlayer}
               onChange={(event) => setFilterPlayer(event.target.value)}
-              placeholder='例如: player_1234'
+              placeholder='player_1234'
             />
           </label>
           <label style={{ width: 220 }}>
-            违规类型
+            Type
             <select value={filterType} onChange={(event) => setFilterType(event.target.value as ViolationType | 'all')}>
               {violationTypeOptions.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -124,26 +90,25 @@ export default function RecordsPage() {
             </select>
           </label>
           <button type='button' onClick={() => void loadData()}>
-            刷新
+            Refresh
           </button>
         </div>
 
         {error ? <p className='error'>{error}</p> : null}
-        {loading ? <p>加载中...</p> : null}
-
-        {!loading && records.length === 0 ? <p>暂无记录</p> : null}
+        {loading ? <p>Loading...</p> : null}
+        {!loading && records.length === 0 ? <p>No records.</p> : null}
 
         {!loading && records.length > 0 ? (
           <div style={{ overflowX: 'auto' }}>
             <table>
               <thead>
                 <tr>
-                  <th>玩家 ID</th>
-                  <th>违规类型</th>
-                  <th>发生时间</th>
-                  <th>记录人</th>
-                  <th>创建时间</th>
-                  <th>操作</th>
+                  <th>Player ID</th>
+                  <th>Type</th>
+                  <th>Occurred At</th>
+                  <th>Reporter</th>
+                  <th>Created At</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -152,10 +117,10 @@ export default function RecordsPage() {
                     <td>{record.player_uid}</td>
                     <td>{record.violation_type}</td>
                     <td>{formatDate(record.occurred_at)}</td>
-                    <td>{record.reporter_id === userId ? '我' : record.reporter_id.slice(0, 8)}</td>
+                    <td>{record.reporter_id === userId ? 'Me' : record.reporter_id.slice(0, 8)}</td>
                     <td>{formatDate(record.created_at)}</td>
                     <td>
-                      <Link href={`/records/${record.id}`}>查看详情</Link>
+                      <Link href={`/records/${record.id}`}>Details</Link>
                     </td>
                   </tr>
                 ))}

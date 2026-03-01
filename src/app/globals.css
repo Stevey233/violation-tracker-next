@@ -21,7 +21,7 @@ a {
 .container {
   max-width: 1080px;
   margin: 0 auto;
-  padding: 24px 16px 48px;
+  padding: 16px 16px 48px;
 }
 
 .card {
@@ -30,6 +30,31 @@ a {
   border-radius: 12px;
   padding: 16px;
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+}
+
+.dock-wrap {
+  position: sticky;
+  top: 10px;
+  z-index: 50;
+}
+
+.dock {
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.dock-link {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  font-size: 13px;
+}
+
+.dock-link.active {
+  border-color: #2563eb;
+  background: #dbeafe;
+  color: #1e3a8a;
 }
 
 .row {
@@ -122,6 +147,25 @@ td {
   color: #047857;
 }
 
+.masonry {
+  column-count: 3;
+  column-gap: 12px;
+}
+
+.masonry-item {
+  break-inside: avoid;
+  margin-bottom: 12px;
+  padding: 10px;
+}
+
+.gallery-image {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+  background: #f1f5f9;
+}
+
 @media (max-width: 768px) {
   .container {
     padding: 16px 12px 32px;
@@ -130,5 +174,13 @@ td {
   .title {
     font-size: 20px;
   }
-}
 
+  .dock {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .masonry {
+    column-count: 2;
+  }
+}

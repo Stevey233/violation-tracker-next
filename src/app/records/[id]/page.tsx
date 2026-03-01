@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Dock from '@/components/Dock';
 import type { EvidenceFile, ViolationRecord } from '@/lib/types';
 import { formatDate } from '@/lib/date';
 import { supabase } from '@/lib/supabase';
@@ -40,9 +41,8 @@ export default function RecordDetailPage({ params }: DetailPageProps) {
         .select('*')
         .eq('id', params.id)
         .single();
-
       if (recordError || !recordData) {
-        setError(recordError?.message ?? '未找到记录');
+        setError(recordError?.message ?? 'Record not found');
         setLoading(false);
         return;
       }
@@ -62,15 +62,15 @@ export default function RecordDetailPage({ params }: DetailPageProps) {
       }
 
       const rows: EvidenceFile[] = evidenceRows ?? [];
-      const list: EvidenceWithUrl[] = [];
-
-      for (const row of rows) {
-        const { data: urlData } = await supabase.storage.from('evidence').createSignedUrl(row.storage_path, 3600);
-        list.push({
-          ...row,
-          signedUrl: urlData?.signedUrl ?? null
-        });
-      }
+      const list = await Promise.all(
+        rows.map(async (row) => {
+          const { data: urlData } = await supabase.storage.from('evidence').createSignedUrl(row.storage_path, 3600);
+          return {
+            ...row,
+            signedUrl: urlData?.signedUrl ?? null
+          };
+        })
+      );
 
       setEvidenceList(list);
       setLoading(false);
@@ -81,45 +81,46 @@ export default function RecordDetailPage({ params }: DetailPageProps) {
 
   return (
     <main className='container stack'>
+      <Dock />
+
       <section className='card row' style={{ justifyContent: 'space-between' }}>
         <div className='stack' style={{ gap: 6 }}>
-          <h1 className='title'>记录详情</h1>
-          <p className='subtitle'>记录 ID: {params.id}</p>
+          <h1 className='title'>Record Details</h1>
+          <p className='subtitle'>Record ID: {params.id}</p>
         </div>
         <div className='row'>
           <Link href='/records'>
             <button type='button' className='secondary'>
-              返回列表
+              Back
             </button>
-          </Link>
-          <Link href='/records/new'>
-            <button type='button'>新建记录</button>
           </Link>
         </div>
       </section>
 
-      {loading ? <section className='card'>加载中...</section> : null}
+      {loading ? <section className='card'>Loading...</section> : null}
       {error ? <section className='card error'>{error}</section> : null}
 
       {!loading && !error && record ? (
         <>
           <section className='card stack'>
-            <h2 style={{ margin: 0, fontSize: 18 }}>基础信息</h2>
+            <h2 style={{ margin: 0, fontSize: 18 }}>Basic Info</h2>
             <div className='row'>
-              <span className='badge'>玩家 ID: {record.player_uid}</span>
-              <span className='badge'>类型: {record.violation_type}</span>
+              <span className='badge'>Player: {record.player_uid}</span>
+              <span className='badge'>Type: {record.violation_type}</span>
             </div>
-            <p className='subtitle'>发生时间：{formatDate(record.occurred_at)}</p>
-            <p className='subtitle'>创建时间：{formatDate(record.created_at)}</p>
+            <p className='subtitle'>Occurred: {formatDate(record.occurred_at)}</p>
+            <p className='subtitle'>Created: {formatDate(record.created_at)}</p>
+
             <div className='stack' style={{ gap: 6 }}>
-              <strong>违规发言</strong>
+              <strong>Message</strong>
               <div className='card' style={{ background: '#f8fafc' }}>
                 {record.message_text}
               </div>
             </div>
+
             {record.note ? (
               <div className='stack' style={{ gap: 6 }}>
-                <strong>备注</strong>
+                <strong>Note</strong>
                 <div className='card' style={{ background: '#f8fafc' }}>
                   {record.note}
                 </div>
@@ -128,8 +129,9 @@ export default function RecordDetailPage({ params }: DetailPageProps) {
           </section>
 
           <section className='card stack'>
-            <h2 style={{ margin: 0, fontSize: 18 }}>证据文件</h2>
-            {evidenceList.length === 0 ? <p className='subtitle'>暂无证据</p> : null}
+            <h2 style={{ margin: 0, fontSize: 18 }}>Evidence</h2>
+            {evidenceList.length === 0 ? <p className='subtitle'>No evidence files.</p> : null}
+
             {evidenceList.map((item) => (
               <div key={item.id} className='card' style={{ background: '#f8fafc' }}>
                 <p className='subtitle' style={{ marginBottom: 8 }}>
@@ -137,10 +139,10 @@ export default function RecordDetailPage({ params }: DetailPageProps) {
                 </p>
                 {item.signedUrl ? (
                   <a href={item.signedUrl} target='_blank' rel='noreferrer'>
-                    打开文件
+                    Open file
                   </a>
                 ) : (
-                  <span className='error'>签名地址生成失败</span>
+                  <span className='error'>Failed to generate signed URL</span>
                 )}
               </div>
             ))}
@@ -150,3 +152,4 @@ export default function RecordDetailPage({ params }: DetailPageProps) {
     </main>
   );
 }
+

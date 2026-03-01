@@ -61,7 +61,7 @@ export default function RecordDetailPage({ params }: DetailPageProps) {
         return;
       }
 
-      const rows = evidenceRows ?? [];
+      const rows: EvidenceFile[] = evidenceRows ?? [];
       const list: EvidenceWithUrl[] = [];
 
       for (const row of rows) {
@@ -150,4 +150,3 @@ export default function RecordDetailPage({ params }: DetailPageProps) {
     </main>
   );
 }
-

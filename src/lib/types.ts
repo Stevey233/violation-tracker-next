@@ -36,18 +36,24 @@ export interface Database {
         Row: Profile;
         Insert: Partial<Profile> & { id: string };
         Update: Partial<Profile>;
+        Relationships: [];
       };
       violation_records: {
         Row: ViolationRecord;
         Insert: Omit<ViolationRecord, 'id' | 'created_at'> & Partial<Pick<ViolationRecord, 'id' | 'created_at'>>;
         Update: Partial<ViolationRecord>;
+        Relationships: [];
       };
       evidence_files: {
         Row: EvidenceFile;
         Insert: Omit<EvidenceFile, 'id' | 'created_at'> & Partial<Pick<EvidenceFile, 'id' | 'created_at'>>;
         Update: Partial<EvidenceFile>;
+        Relationships: [];
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 }
-
